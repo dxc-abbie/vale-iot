@@ -3,6 +3,8 @@
 #include <MFRC522.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
+#include <ArduinoJson.h>
+#include <Time.h>
 #define TIME_ZONE 8  //  Philippines: UTC+8
 
 
@@ -13,19 +15,24 @@ MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
 
 
 WiFiClient wifiClient;
+WiFiClientSecure client;
+
+// change the ssid and password based on WIFI network
+const char *ssid = "HUAWEI-2.4G-H2ah";
+const char *password = "KchqP5P6";
+
+char date_of_access[11]; // "YYYY-MM-DD\0"
+char time_of_access[9]; // "HH:MM:SS\0"
 
 
-String ssid = "**************"; Replace with your WIFI SSID
-String password = "**************"; Replace with your WIFI Password
-String serverAddress = "**************"; // Change this to your server address
+// Server URL
+String serverUrl = "https://vale-n93a.onrender.com";
 
 // Define the authorized RFID tag UID
 String authorizedTagUID = "82BAB451";
-
 time_t now;
 time_t nowish = 1510592825;
 
-// function to connect to WIFI
 void connectToWiFi() {
   WiFi.begin(ssid, password);
 
@@ -41,21 +48,23 @@ void connectToWiFi() {
   Serial.println(WiFi.localIP());
 }
 
-void sendUIDToServer(String uid) {
-    HTTPClient http;
+void getRecordsFromServer() {
+  // ignore certificates 
+  client.setInsecure();
 
-    String url = serverAddress;
-    Serial.println(url);
+  HTTPClient http;
 
-    http.setTimeout(10000);
+  String url = serverUrl + "/records";
+  Serial.println(url);
 
-    http.begin(wifiClient, url); // Specify the URL
+  http.begin(client, url); // Specify the URL
 
-    int httpCode = http.GET(); // Make the request
-    Serial.println(httpCode);
+  int httpResponseCode = http.GET(); // Make the request
+  Serial.println(httpResponseCode);
 
-    if (httpCode > 0) {
-      if (httpCode == HTTP_CODE_OK) {
+  // Check for a successful response
+  if (httpResponseCode > 0) {
+      if (httpResponseCode == HTTP_CODE_OK) {
           String payload = http.getString(); // Get the response payload
           Serial.println("Server Response: " + payload);
       } else {
@@ -63,14 +72,61 @@ void sendUIDToServer(String uid) {
       }
     } else {
         Serial.println("Unable to connect to server");
-        Serial.println("Error: " + String(http.errorToString(httpCode).c_str()));
-    }
+        Serial.println("Error: " + String(http.errorToString(httpResponseCode).c_str()));
+  }
 
-    http.end(); // Close connection
+  http.end(); // Close connection
+
 }
 
-// get the time, PH time
-void NTPConnect(void)
+
+void postDataToServer(const String &person_id, const String &date, const String &time, const String &location_id, float temperature)
+{
+  // Round temperature to 1 decimal place
+  temperature = roundf(temperature * 10) / 10;
+
+  // ignore certificates 
+  client.setInsecure();
+
+  HTTPClient http;
+
+  // Create a JSON document
+  DynamicJsonDocument doc(256);
+  doc["person_id"] = person_id;
+  doc["date_of_access"] = date;
+  doc["time_of_access"] = time;
+  doc["location_id"] = location_id;
+  doc["temperature"] = temperature;
+
+  // Serialize the JSON document to a string
+  String payload;
+  serializeJson(doc, payload);
+
+  // Start the HTTP request
+  http.begin(client, serverUrl + "/records");
+  http.addHeader("Content-Type", "application/json");
+
+  // Send the payload
+  int httpResponseCode = http.POST(payload);
+
+  // Check for a successful response
+  if (httpResponseCode > 0) {
+      if (httpResponseCode == HTTP_CODE_OK) {
+          String payload = http.getString(); // Get the response payload
+          Serial.println("Server Response: " + payload);
+      } else {
+          Serial.println("HTTP POST Request Failed");
+      }
+    } else {
+        Serial.println("Unable to connect to server");
+        Serial.println("Error: " + String(http.errorToString(httpResponseCode).c_str()));
+  }
+
+  // End the request
+  http.end();
+}
+
+void NTPConnect(String &date_of_access, String &time_of_access)
 {
   configTime(TIME_ZONE * 3600, 0, "pool.ntp.org", "time.nist.gov");
   now = time(nullptr);
@@ -83,11 +139,20 @@ void NTPConnect(void)
   gmtime_r(&now, &timeinfo);
 
   timeinfo.tm_hour += TIME_ZONE;
-  if(timeinfo.tm_hour >= 24) {
+  if (timeinfo.tm_hour >= 24)
+  {
     timeinfo.tm_hour -= 24;
     timeinfo.tm_mday += 1;
   }
-  Serial.print(asctime(&timeinfo));
+
+  char date_buffer[11]; // "YYYY-MM-DD\0"
+  char time_buffer[9]; // "HH:MM:SS\0"
+
+  strftime(date_buffer, sizeof(date_buffer), "%Y-%m-%d", &timeinfo);
+  strftime(time_buffer, sizeof(time_buffer), "%H:%M:%S", &timeinfo);
+
+  date_of_access = String(date_buffer);
+  time_of_access = String(time_buffer);
 }
 
 void setup() {
@@ -95,19 +160,13 @@ void setup() {
   SPI.begin();        // Initiate SPI bus
   mfrc522.PCD_Init(); // Initiate MFRC522
 
-  // connect to wifi connection 
+  // connect to Wifi 
   connectToWiFi();
-  
-  // Get the Current Time
-  Serial.print("Current time: ");
-  // call function to get the current time
-  NTPConnect();
 }
 
 void loop() {
   // Look for new cards
   if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
-
     Serial.println("Card Detected!");
 
     // Show UID on serial monitor
@@ -119,20 +178,15 @@ void loop() {
     }
     // Convert to uppercase
     content.toUpperCase();
-    Serial.print(content + " | Current Time: ");
-    NTPConnect();
-
-    // Check if the detected UID matches the authorized tag UID
-    if (content.substring(1) == authorizedTagUID) {
-      Serial.println("Access Granted");
-
-      // Send UID to Node.js server
-      sendUIDToServer(content);
-
+    Serial.println(content);
     
-    } else {
-      Serial.println("Access Denied");
-    }
+    // Get date and time format
+    String date;
+    String time;
+    NTPConnect(date, time);
+
+    // Send data to server
+    postDataToServer("11618904", date, time, "LR002-EXT", 36.1);
 
     delay(1000);
   }
