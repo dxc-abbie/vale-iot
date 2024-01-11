@@ -98,9 +98,6 @@ void getDetailsFromRecords(const String &tagUID) {
 
 void postDataToServer(const String &person_id, const String &date, const String &time, const String &location_id, float temperature)
 {
-  // Round temperature to 1 decimal place
-  temperature = roundf(temperature * 10) / 10;
-
   // ignore certificates 
   client.setInsecure();
 
@@ -112,7 +109,13 @@ void postDataToServer(const String &person_id, const String &date, const String 
   doc["date_of_access"] = date;
   doc["time_of_access"] = time;
   doc["location_id"] = location_id;
-  doc["temperature"] = temperature;
+
+  
+  // Format temperature to one decimal place
+  char tempStr[5]; // Assuming temperature won't exceed 999.9
+  dtostrf(temperature, 4, 1, tempStr);
+  doc["temperature"] = tempStr;
+
 
   // Serialize the JSON document to a string
   String payload;
