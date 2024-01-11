@@ -13,8 +13,6 @@
 
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
 
-
-WiFiClient wifiClient;
 WiFiClientSecure client;
 
 // change the ssid and password based on WIFI network
@@ -185,17 +183,19 @@ void setup() {
   // connectToWifi 
   connectToWiFi();
   
+  // get date and time of access
   String date;
   String time;
   NTPConnect(date, time);
 
-  // get time
-  // Serial.print("Current time: ");
   Serial.print("Date of access: ");
   Serial.println(date);
   Serial.print("Time of access: ");
   Serial.println(time);
-  // NTPConnect();
+
+  // random number generator
+  randomSeed(analogRead(A0));
+
 
 }
 
@@ -220,11 +220,16 @@ void loop() {
     String time;
     NTPConnect(date, time);
 
-    // get details from records table
-    getDetailsFromRecords(content);
+    // // get details from records table
+    // getDetailsFromRecords(content);
+
+    // Generate random temperature between 36 - 39
+    float randomTemperature = random(364, 389) / 10.0;
+    Serial.print("Temperature: ");
+    Serial.println(randomTemperature);
 
     // Send data to server
-    postDataToServer(content, date, time, "LR002-EXT", 36.1);
+    postDataToServer(content, date, time, "LR002-EXT", randomTemperature);
     
 
     delay(1000);
