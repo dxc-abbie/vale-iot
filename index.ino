@@ -175,6 +175,20 @@ void NTPConnect(String &date_of_access, String &time_of_access)
   time_of_access = String(time_buffer);
 }
 
+
+String getLocation(String idTag) {
+  if (idTag == "82BAB451") {
+    return "FD001-ENT";
+  } else if (idTag == "72DFD751" ) {
+    return "FD001-EXT";
+  } else if (idTag == "A7A6585C" ) {
+    return "LR001-ENT";
+  } else if (idTag == "E8E5CE82" ) {
+    return "FD002-ENT";
+  } else {
+    return "LR002-EXT";
+  } 
+}
 void setup() {
   Serial.begin(115200);
   SPI.begin();        // Initiate SPI bus
@@ -228,8 +242,13 @@ void loop() {
     Serial.print("Temperature: ");
     Serial.println(randomTemperature);
 
+    // get location
+    String location = getLocation(content);
+    Serial.print("Location: ");
+    Serial.println(location);
+
     // Send data to server
-    postDataToServer(content, date, time, "LR002-EXT", randomTemperature);
+    postDataToServer(content, date, time, location, randomTemperature);
     
 
     delay(1000);
