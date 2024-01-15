@@ -6,7 +6,11 @@
 #include <ArduinoJson.h>
 #include <Time.h>
 #define TIME_ZONE 8  //  Philippines: UTC+8
+#include "DHT.h"  //Library for the sensor
+#define DHTTYPE DHT22 
+#define DHTPIN D8 // DHT22 sensor's data line is connected to pin D8
 
+float temperature; // define variable for temperature
 
 #define SS_PIN D4  // Define the SS (Slave Select) pin for RC522
 #define RST_PIN D3 // Define the RST pin for RC522
@@ -32,6 +36,8 @@ String serverUrl = "https://vale-n93a.onrender.com";
 
 time_t now;
 time_t nowish = 1510592825;
+
+DHT dht(DHTPIN, DHTTYPE);
 
 void connectToWiFi() {
   WiFi.begin(ssid, password);
@@ -193,7 +199,10 @@ void setup() {
   Serial.begin(115200);
   SPI.begin();        // Initiate SPI bus
   mfrc522.PCD_Init(); // Initiate MFRC522
-
+ 
+  // Start the temperature sensor
+  dht.begin();
+  
   // connectToWifi 
   connectToWiFi();
   
@@ -237,10 +246,15 @@ void loop() {
     // // get details from records table
     // getDetailsFromRecords(content);
 
-    // Generate random temperature between 36 - 39
-    float randomTemperature = random(364, 389) / 10.0;
+    // // Generate random temperature between 36 - 39
+    // float randomTemperature = random(364, 389) / 10.0;
+    // Serial.print("Temperature: ");
+    // Serial.println(randomTemperature);
+
+    //Store temperature value in variable temperature
+    temperature = dht.readTemperature();
     Serial.print("Temperature: ");
-    Serial.println(randomTemperature);
+    Serial.println(temperature);
 
     // get location
     String location = getLocation(content);
@@ -248,7 +262,7 @@ void loop() {
     Serial.println(location);
 
     // Send data to server
-    postDataToServer(content, date, time, location, randomTemperature);
+    postDataToServer(content, date, time, location, temperature);
     
 
     delay(1000);
