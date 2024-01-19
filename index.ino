@@ -1,3 +1,11 @@
+//Wiring
+//RST D1
+//SDA D2
+//MOSI D7
+//MISO D6
+//SCK D5
+//GND GND
+//3.3V 3.3V
 #include <ESP8266HTTPClient.h>
 #include <SPI.h>
 #include <MFRC522.h>
@@ -12,8 +20,8 @@
 
 float temperature; // define variable for temperature
 
-#define SS_PIN D4  // Define the SS (Slave Select) pin for RC522
-#define RST_PIN D3 // Define the RST pin for RC522
+#define SS_PIN 4  // Define the SS (Slave Select) pin for RC522
+#define RST_PIN 5 // Define the RST pin for RC522
 
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
 
@@ -21,8 +29,8 @@ WiFiClientSecure client;
 
 // change the ssid and password based on WIFI network
 
-const char *ssid = "HUAWEI-2.4G-H2ah";
-const char *password = "KchqP5P6";
+const char *ssid = "WiFI-JA-ROOM";
+const char *password = "nevermeltcheese";
 
 // define variable for date and time of access
 char date_of_access[11]; // "YYYY-MM-DD\0"
